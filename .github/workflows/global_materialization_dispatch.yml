@@ -1,0 +1,34 @@
+name: Global Materialization Dispatch
+
+on:
+  workflow_call:
+    inputs:
+      materializer_repository:
+        type: string
+        required: true
+      source_repository:
+        type: string
+        required: true
+      source_sha:
+        type: string
+        required: true
+      runner:
+        type: string
+        required: true
+    secrets:
+      MATERIALIZATION_DISPATCH_TOKEN:
+        required: true
+
+permissions: {}
+
+jobs:
+  global_materialization_dispatch:
+    name: Global Materialization Dispatch
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - run: gh workflow run materialization.yml --repo "$MATERIALIZER_REPOSITORY" --ref main -f "source_repository=$SOURCE_REPOSITORY" -f "source_sha=$SOURCE_SHA"
+        env:
+          MATERIALIZER_REPOSITORY: ${{ inputs.materializer_repository }}
+          SOURCE_REPOSITORY: ${{ inputs.source_repository }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          GH_TOKEN: ${{ secrets.MATERIALIZATION_DISPATCH_TOKEN }}
