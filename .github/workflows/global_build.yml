@@ -1,15 +1,22 @@
-name: Global Universal Build System
+name: Global Build
 
 on:
   workflow_call:
     inputs:
       source_repository:
+        description: Source repository in owner/repository format
         type: string
         required: true
       source_sha:
+        description: Full source commit SHA to build
+        type: string
+        required: true
+      build_system:
+        description: Build system used by the source repository
         type: string
         required: true
       runner:
+        description: GitHub runner label for the native build
         type: string
         required: true
 
@@ -17,23 +24,26 @@ permissions:
   contents: read
 
 jobs:
-  global_universal_build_system:
-    name: Global Universal Build System
+  global_build:
+    name: Global Build
     runs-on: ${{ inputs.runner }}
     steps:
+      - if: inputs.build_system != 'universal'
+        run: echo "::error::Only the universal build system is implemented"; exit 1
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ inputs.source_repository }}
           ref: ${{ inputs.source_sha }}
           persist-credentials: false
-      - uses: cachix/install-nix-action@b85815f71a6de0ddee80b8a80a98d43f4bcc66c7 # v31
-      - run: ./universal-build build
+      # TODO: Add Bazel build action.
+      - if: inputs.build_system == 'universal'
+        uses: $/.github/actions/global_universal_build
       - run: jq -Rr '"ARTIFACT_NAMESPACE=" + (split("/") | join("--"))' <<< "$SOURCE_REPOSITORY" >> "$GITHUB_ENV"
         env:
           SOURCE_REPOSITORY: ${{ inputs.source_repository }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: release-artifact-${{ env.ARTIFACT_NAMESPACE }}-${{ inputs.source_sha }}
+          name: release-artifact-${{ env.ARTIFACT_NAMESPACE }}-${{ inputs.source_sha }}-${{ inputs.runner }}
           path: build/release-artifact.tar.gz
           if-no-files-found: error
           overwrite: true
