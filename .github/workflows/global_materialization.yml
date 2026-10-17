@@ -1,0 +1,59 @@
+name: Global Materialization
+
+on:
+  workflow_call:
+    inputs:
+      bounce:
+        description: Rebuild current pins without changing any source revision
+        type: boolean
+        required: true
+      source_repository:
+        description: Registered source repository (required unless bounce is true)
+        type: string
+        required: false
+      source_sha:
+        description: Full commit SHA for the source repository (required unless bounce is true)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  global_source_selection:
+    name: Global Source Selection
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04-arm
+    concurrency:
+      group: global-source-selection
+      queue: max
+    outputs:
+      builds: ${{ steps.global-source-selection.outputs.builds }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: .github/repositories.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - id: global-source-selection
+        uses: $/.github/actions/global_source_selection
+        with:
+          bounce: ${{ inputs.bounce }}
+          source_repository: ${{ inputs.source_repository }}
+          source_sha: ${{ inputs.source_sha }}
+
+  global_ci:
+    name: Global CI (${{ matrix.source_repository }}, ${{ matrix.runner }})
+    needs: global_source_selection
+    if: needs.global_source_selection.outputs.builds != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.global_source_selection.outputs.builds) }}
+    uses: $/.github/workflows/global_build.yml
+    with:
+      source_repository: ${{ matrix.source_repository }}
+      source_sha: ${{ matrix.source_sha }}
+      build_system: ${{ matrix.build_system }}
+      runner: ${{ matrix.runner }}
