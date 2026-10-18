@@ -1,0 +1,48 @@
+name: Internal Source Selection
+description: Apply the source override specified by the selection mode and build the complete source matrix
+
+inputs:
+  selection_mode:
+    description: dry_run, materialization, or bounce
+    required: true
+  materializer_repository:
+    description: Repository containing the source registry and saved pins
+    required: true
+  materializer_ref:
+    description: Ref from which to read .github/repositories.json
+    required: true
+  source_repository:
+    description: Registered source repository to override for this run
+    required: false
+  source_sha:
+    description: Full commit SHA to use for the source override
+    required: false
+
+outputs:
+  builds:
+    description: Build matrix for all registered source repositories
+    value: ${{ steps.internal-source-selection.outputs.builds }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        repository: ${{ inputs.materializer_repository }}
+        ref: ${{ inputs.materializer_ref }}
+        sparse-checkout: .github/repositories.json
+        sparse-checkout-cone-mode: false
+        persist-credentials: false
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.13.9'
+    - id: internal-source-selection
+      run: python "$GITHUB_ACTION_PATH/select_sources.py"
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        SELECTION_MODE: ${{ inputs.selection_mode }}
+        MATERIALIZER_REPOSITORY: ${{ inputs.materializer_repository }}
+        SOURCE_REPOSITORY: ${{ inputs.source_repository }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        GH_TOKEN: ${{ github.token }}

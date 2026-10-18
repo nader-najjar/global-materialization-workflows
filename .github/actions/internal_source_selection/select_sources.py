@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import asdict, dataclass
 import json
 import os
@@ -25,9 +27,9 @@ class Build:
 
 @dataclass(frozen=True)
 class SelectionRequest:
-    bounce: bool
-    source_repository: str
-    source_sha: str
+    selection_mode: str
+    source_repository: str | None
+    source_sha: str | None
 
 
 def load_repositories() -> list[Source]:
@@ -44,26 +46,30 @@ def load_repositories() -> list[Source]:
 
 
 def read_request(repositories: list[Source]) -> SelectionRequest:
-    bounce = os.environ["BOUNCE"]
-    source_repository = os.environ.get("SOURCE_REPOSITORY", "")
-    source_sha = os.environ.get("SOURCE_SHA", "")
+    selection_mode = os.environ["SELECTION_MODE"]
+    source_repository = os.environ.get("SOURCE_REPOSITORY") or None
+    source_sha = os.environ.get("SOURCE_SHA") or None
+    source_validation.validate_request(
+        selection_mode,
+        source_repository,
+        source_sha,
+        repositories
+    )
 
-    source_validation.validate_request(bounce, source_repository, source_sha, repositories)
-
-    return SelectionRequest(bounce == "true", source_repository, source_sha)
+    return SelectionRequest(selection_mode, source_repository, source_sha)
 
 
 def select_pins(saved_pins: dict[str, str], request: SelectionRequest) -> dict[str, str]:
     pins = saved_pins.copy()
     source_validation.validate_pins(pins)
 
-    if not request.bounce:
+    if request.source_repository is not None:
         pins[request.source_repository] = request.source_sha
 
     return pins
 
 
-def build_matrix(repositories: list[Source], pins: dict[str, str]) -> list[Build]:
+def generate_build_matrix(repositories: list[Source], pins: dict[str, str]) -> list[Build]:
     source_validation.validate_initialized_pins(repositories, pins)
 
     builds = []
@@ -74,22 +80,24 @@ def build_matrix(repositories: list[Source], pins: dict[str, str]) -> list[Build
 
 
 def builds_for_source(source: Source, sha: str) -> list[Build]:
-    builds = []
-    for runner in sorted(source.runners):
-        build = Build(
+    return [
+        Build(
             source_repository=source.source_repository,
             source_sha=sha,
             build_system=source.build_system,
             runner=runner
         )
-        builds.append(build)
-
-    return builds
+        for runner in sorted(source.runners)
+    ]
 
 
 def write_output(builds: list[Build]) -> None:
     with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
-        output.write("builds=" + json.dumps([asdict(build) for build in builds], separators=(",", ":")) + "\n")
+        output.write(
+            "builds="
+            + json.dumps([asdict(build) for build in builds], separators=(",", ":"))
+            + "\n"
+        )
 
 
 def main() -> None:
@@ -98,11 +106,13 @@ def main() -> None:
 
     saved = github_state.load()
     pins = select_pins(saved.revisions, request)
-    if not request.bounce:
+    if request.selection_mode == "materialization":
         github_state.save(pins, saved)
 
-    builds = build_matrix(repositories, pins)
-    write_output(builds)
+    source_validation.validate_initialization(repositories, pins, request)
+
+    build_matrix = generate_build_matrix(repositories, pins)
+    write_output(build_matrix)
 
 
 if __name__ == "__main__":
