@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 from dataclasses import dataclass
 import json
@@ -9,7 +11,10 @@ import github_state_validation
 
 
 BRANCH = "materialization-state"
-ENDPOINT = f"{os.environ['GITHUB_API_URL']}/repos/{os.environ['GITHUB_REPOSITORY']}"
+ENDPOINT = (
+    f"{os.environ['GITHUB_API_URL'].rstrip('/')}/repos/"
+    f"{os.environ['MATERIALIZER_REPOSITORY']}"
+)
 HEADERS = {
     "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
     "Accept": "application/vnd.github+json",
@@ -53,12 +58,15 @@ def load() -> SavedPins:
 
 
 def save(pins: dict[str, str], previous: SavedPins) -> None:
-    _ensure_state_branch(previous)
+    content = json.dumps(pins, sort_keys=True)
+    if previous.blob_sha is None and not _state_branch_exists():
+        _initialize_state_branch(content)
+        return
 
     payload = {
         "branch": BRANCH,
         "message": "Update materialization source pins",
-        "content": base64.b64encode(json.dumps(pins, sort_keys=True).encode("utf-8")).decode("ascii")
+        "content": base64.b64encode(content.encode("utf-8")).decode("ascii")
     }
     if previous.blob_sha is not None:
         payload["sha"] = previous.blob_sha
@@ -66,16 +74,31 @@ def save(pins: dict[str, str], previous: SavedPins) -> None:
     _request("PUT", "/contents/source-pins.json", payload)
 
 
-def _ensure_state_branch(previous: SavedPins) -> None:
-    if previous.blob_sha is not None:
-        return
+def _state_branch_exists() -> bool:
+    return _request("GET", f"/git/ref/heads/{BRANCH}", missing_ok=True) is not None
 
-    branch = _request("GET", f"/git/ref/heads/{BRANCH}", missing_ok=True)
-    if branch is not None:
-        return
 
-    payload = {
+def _initialize_state_branch(content: str) -> None:
+    tree = _request("POST", "/git/trees", {
+        "tree": [{
+            "path": "source-pins.json",
+            "mode": "100644",
+            "type": "blob",
+            "content": content
+        }]
+    })
+    if tree is None:
+        raise RuntimeError("GitHub did not return the initial state tree")
+
+    commit = _request("POST", "/git/commits", {
+        "message": "Update materialization source pins",
+        "tree": tree["sha"],
+        "parents": []
+    })
+    if commit is None:
+        raise RuntimeError("GitHub did not return the initial state commit")
+
+    _request("POST", "/git/refs", {
         "ref": f"refs/heads/{BRANCH}",
-        "sha": os.environ["GITHUB_SHA"]
-    }
-    _request("POST", "/git/refs", payload)
+        "sha": commit["sha"]
+    })

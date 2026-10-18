@@ -1,0 +1,35 @@
+name: Global Dry Run
+
+on:
+  workflow_call:
+    inputs:
+      materializer_repository:
+        description: Repository containing the source registry and saved pins
+        type: string
+        required: true
+      materializer_ref:
+        description: Exact ref from which to read .github/repositories.json
+        type: string
+        required: true
+      source_repository:
+        description: Registered source repository whose PR revision will be tested
+        type: string
+        required: true
+      source_sha:
+        description: Full commit SHA to use for the source override
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  internal_ci:
+    name: Internal CI
+    uses: $/.github/workflows/internal_ci.yml
+    with:
+      selection_mode: dry_run
+      materializer_repository: ${{ inputs.materializer_repository }}
+      materializer_ref: ${{ inputs.materializer_ref }}
+      source_repository: ${{ inputs.source_repository }}
+      source_sha: ${{ inputs.source_sha }}

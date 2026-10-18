@@ -1,4 +1,4 @@
-name: Global Universal Build
+name: Internal Universal Build
 description: Build a source repository with the Universal Build System
 
 runs:
