@@ -1,0 +1,36 @@
+module(name = "global_materialization_workflows", version = "1.0.0")
+
+bazel_dep(name = "aspect_rules_lint", version = "2.9.0")
+bazel_dep(name = "rules_java", version = "9.9.0")
+bazel_dep(name = "rules_jvm_external", version = "7.1")
+
+register_toolchains("@rules_java//toolchains:all")
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    artifacts = [
+        "ch.qos.logback:logback-classic:1.5.21",
+        "com.fasterxml.jackson.core:jackson-annotations:2.20",
+        "com.fasterxml.jackson.core:jackson-core:2.20.1",
+        "com.fasterxml.jackson.core:jackson-databind:2.20.1",
+        "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.20.1",
+        "com.github.spotbugs:spotbugs:4.10.4",
+        "com.github.spotbugs:spotbugs-annotations:4.10.4",
+        "com.google.guava:guava:33.4.8-jre",
+        "com.google.inject:guice:7.0.0",
+        "com.puppycrawl.tools:checkstyle:14.1.0",
+        "org.glassfish.expressly:expressly:6.0.0",
+        "jakarta.validation:jakarta.validation-api:3.1.1",
+        "org.hibernate.validator:hibernate-validator:9.1.0.Final",
+        "org.junit.jupiter:junit-jupiter:5.13.4",
+        "org.junit.jupiter:junit-jupiter-api:5.13.4",
+        "org.junit.platform:junit-platform-console-standalone:1.13.4",
+        "org.slf4j:slf4j-api:2.0.17"
+    ],
+    fail_if_repin_required = True,
+    known_contributing_modules = ["protobuf"],
+    lock_file = "//:maven_install.json",
+    repositories = ["https://repo.maven.apache.org/maven2"],
+    version_conflict_policy = "pinned"
+)
+use_repo(maven, "maven")

@@ -1,48 +1,40 @@
 name: Internal Source Selection
-description: Apply the source override specified by the selection mode and build the complete source matrix
+description: Derive the build matrix from an owned immutable pin set
 
 inputs:
-  selection_mode:
-    description: dry_run, materialization, or bounce
+  snapshot_sha:
+    description: Immutable pin-set commit supplied by the launcher
     required: true
-  materializer_repository:
-    description: Repository containing the source registry and saved pins
-    required: true
-  materializer_ref:
-    description: Ref from which to read .github/repositories.json
-    required: true
-  source_repository:
-    description: Registered source repository to override for this run
-    required: false
-  source_sha:
-    description: Full commit SHA to use for the source override
-    required: false
 
 outputs:
   builds:
-    description: Build matrix for all registered source repositories
+    description: Build matrix derived from the pinned software definition
     value: ${{ steps.internal-source-selection.outputs.builds }}
+  selection_attempt:
+    description: Execution attempt in which the matrix was generated
+    value: ${{ steps.internal-source-selection.outputs.selection_attempt }}
 
 runs:
   using: composite
   steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
-        repository: ${{ inputs.materializer_repository }}
-        ref: ${{ inputs.materializer_ref }}
+        ref: ${{ github.sha }}
         sparse-checkout: .github/repositories.json
         sparse-checkout-cone-mode: false
         persist-credentials: false
-    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+    - uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
       with:
-        python-version: '3.13.9'
+        bazelisk-version: '1.29.0'
+        bazelisk-cache: true
+        repository-cache: true
+        disk-cache: true
+        module-root: ${{ github.action_path }}/../../..
     - id: internal-source-selection
-      run: python "$GITHUB_ACTION_PATH/select_sources.py"
+      run: bazel run //:build_matrix
       shell: bash
-      working-directory: ${{ github.workspace }}
+      working-directory: ${{ github.action_path }}/../../..
       env:
-        SELECTION_MODE: ${{ inputs.selection_mode }}
-        MATERIALIZER_REPOSITORY: ${{ inputs.materializer_repository }}
-        SOURCE_REPOSITORY: ${{ inputs.source_repository }}
-        SOURCE_SHA: ${{ inputs.source_sha }}
+        SNAPSHOT_SHA: ${{ inputs.snapshot_sha }}
+        SELECTION_PATH: ${{ runner.temp }}/pipeline-selection.json
         GH_TOKEN: ${{ github.token }}

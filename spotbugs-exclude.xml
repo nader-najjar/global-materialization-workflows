@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<FindBugsFilter>
+  <!-- Ignore exposure of internal representation and similar patterns -->
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP"/>
+  </Match>
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+</FindBugsFilter>

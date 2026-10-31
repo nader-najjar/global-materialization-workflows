@@ -1,2 +1,7 @@
-__pycache__/
+/bazel-*
 .vscode/
+.idea/
+*.iml
+out/
+.DS_Store
+__pycache__/

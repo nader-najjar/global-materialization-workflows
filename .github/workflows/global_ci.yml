@@ -1,0 +1,47 @@
+name: Global CI
+
+on:
+  workflow_call:
+    inputs:
+      snapshot_sha:
+        description: Immutable pin-set commit supplied by the launcher
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  internal_build_matrix:
+    name: Internal Build Matrix
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      builds: ${{ steps.internal-source-selection.outputs.builds }}
+      selection_attempt: ${{ steps.internal-source-selection.outputs.selection_attempt }}
+    steps:
+      - id: internal-source-selection
+        uses: $/.github/actions/internal_source_selection
+        with:
+          snapshot_sha: ${{ inputs.snapshot_sha }}
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pipeline-selection.json
+          if-no-files-found: warn
+
+  internal_build:
+    name: Internal Build (${{ matrix.source_repository }}, ${{ matrix.runner }})
+    needs: internal_build_matrix
+    if: needs.internal_build_matrix.outputs.builds != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.internal_build_matrix.outputs.builds) }}
+    uses: $/.github/workflows/internal_build.yml
+    with:
+      source_repository: ${{ matrix.source_repository }}
+      source_sha: ${{ matrix.source_sha }}
+      build_system: ${{ matrix.build_system }}
+      runner: ${{ matrix.runner }}
+      selection_attempt: ${{ needs.internal_build_matrix.outputs.selection_attempt }}

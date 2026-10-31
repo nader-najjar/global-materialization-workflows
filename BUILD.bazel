@@ -1,0 +1,72 @@
+load("//tools/lint:linters.bzl", "checkstyle_test", "spotbugs_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+
+package(default_visibility = ["//visibility:private"])
+
+exports_files([
+    "checkstyle.xml",
+    "maven_install.json",
+    "spotbugs-exclude.xml"
+], visibility = ["//tools/lint:__pkg__"])
+
+java_library(
+    name = "app",
+    srcs = glob(["src/main/java/**/*.java"]),
+    deps = [
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_fasterxml_jackson_datatype_jackson_datatype_jsr310",
+        "@maven//:com_google_inject_guice",
+        "@maven//:jakarta_validation_jakarta_validation_api",
+        "@maven//:org_hibernate_validator_hibernate_validator",
+        "@maven//:org_slf4j_slf4j_api"
+    ],
+    runtime_deps = ["@maven//:org_glassfish_expressly_expressly"]
+)
+
+java_library(
+    name = "logging",
+    resources = glob(["src/main/resources/**"]),
+    resource_strip_prefix = "src/main/resources",
+    runtime_deps = ["@maven//:ch_qos_logback_logback_classic"]
+)
+
+java_binary(
+    name = "ignition",
+    main_class = "io.materializer.IgnitionMain",
+    runtime_deps = [":app", ":logging"],
+    stamp = 0
+)
+
+java_binary(
+    name = "dispatch",
+    main_class = "io.materializer.DispatchMain",
+    runtime_deps = [":app", ":logging"],
+    stamp = 0
+)
+
+java_binary(
+    name = "build_matrix",
+    main_class = "io.materializer.BuildMatrixMain",
+    runtime_deps = [":app", ":logging"],
+    stamp = 0
+)
+
+java_test(
+    name = "all_tests",
+    srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
+    args = ["execute", "--select-package=io.materializer", "--fail-if-no-tests", "--disable-banner"],
+    main_class = "org.junit.platform.console.ConsoleLauncher",
+    use_testrunner = False,
+    deps = [
+        ":app",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:org_junit_jupiter_junit_jupiter_api"
+    ],
+    runtime_deps = [":logging", "@maven//:org_junit_platform_junit_platform_console_standalone"]
+)
+
+checkstyle_test(name = "checkstyle", srcs = [":app", ":all_tests"])
+spotbugs_test(name = "spotbugs", srcs = [":app", ":all_tests"])

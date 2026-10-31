@@ -1,0 +1,48 @@
+name: Global Pipeline Dispatch
+description: Dispatch a central materialization or dispatch and await a central dry run
+
+inputs:
+  selection_mode:
+    description: materialize or dry_run
+    required: true
+  materializer_repository:
+    description: Pipeline repository in owner/repository format
+    required: true
+  source_repository:
+    description: Source repository in owner/repository format
+    required: true
+  source_sha:
+    description: Full source commit SHA
+    required: true
+  token:
+    description: Token with Actions write access to the pipeline repository
+    required: true
+
+outputs:
+  run_id:
+    description: Exact central workflow run ID returned by dispatch
+    value: ${{ steps.dispatch.outputs.run_id }}
+  run_url:
+    description: Central workflow run URL
+    value: ${{ steps.dispatch.outputs.run_url }}
+
+runs:
+  using: composite
+  steps:
+    - uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
+      with:
+        bazelisk-version: '1.29.0'
+        bazelisk-cache: true
+        repository-cache: true
+        disk-cache: true
+        module-root: ${{ github.action_path }}/../../..
+    - id: dispatch
+      run: bazel run //:dispatch
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../..
+      env:
+        SELECTION_MODE: ${{ inputs.selection_mode }}
+        MATERIALIZER_REPOSITORY: ${{ inputs.materializer_repository }}
+        SOURCE_REPOSITORY: ${{ inputs.source_repository }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        GH_TOKEN: ${{ inputs.token }}
