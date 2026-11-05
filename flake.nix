@@ -2,7 +2,6 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
 
   outputs = { nixpkgs, ... }:
-
     let
       systems = [ "aarch64-darwin" "x86_64-darwin" "x86_64-linux" "aarch64-linux" ];
       forEachSystem = nixpkgs.lib.genAttrs systems;
@@ -10,23 +9,19 @@
     in
     {
       devShells = forEachSystem (system:
-
         let
           pkgs = import nixpkgs { inherit system; };
-
-          chosenJdk = pkgs.jdk25_headless;
-          chosenGradle = pkgs.gradle_9.override { java = chosenJdk; };
 
         in
         {
           buildtime = pkgs.mkShell {
             packages = [
-              chosenJdk
-              chosenGradle
+              pkgs.jdk25_headless
+              (pkgs.gradle_9.override { java = pkgs.jdk25_headless; })
             ];
 
-            JAVA_HOME = "${chosenJdk}";
-            GRADLE_HOME = "${chosenGradle}/lib/gradle";
+            JAVA_HOME = "${pkgs.jdk25_headless}";
+            GRADLE_HOME = "${pkgs.gradle_9.override { java = pkgs.jdk25_headless; }}/lib/gradle";
 
             # Gradle uses an unsafe JDK operation, this flag removes the warning
             JDK_JAVA_OPTIONS = "--enable-native-access=ALL-UNNAMED";
@@ -39,21 +34,18 @@
             RELEASE_TYPE = "container";
           };
         }
-
       );
 
       packages = forEachSystem (system:
-
         let
           pkgs = import nixpkgs { inherit system; };
-          chosenJdk = pkgs.jdk25_headless;
 
         in
         {
           runtime = pkgs.writeShellApplication {
             name = "ignite";
-            runtimeInputs = [ chosenJdk ];
-            runtimeEnv.JAVA_HOME = "${chosenJdk}";
+            runtimeInputs = [ pkgs.jdk25_headless ];
+            runtimeEnv.JAVA_HOME = "${pkgs.jdk25_headless}";
             text = ''
               idiomatic_artifacts_dir="$1"
               # Guice uses an unsafe JDK operation, this flag removes the warning
@@ -61,7 +53,6 @@
             '';
           };
         }
-
       );
     };
 }
