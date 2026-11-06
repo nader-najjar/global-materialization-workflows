@@ -24,7 +24,7 @@ eclipse {
 }
 
 base {
-    archivesName.set("global-materialization-workflows")
+    archivesName.set("universal-materialization-service")
 }
 
 java {
