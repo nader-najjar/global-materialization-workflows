@@ -5,6 +5,8 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import io.materializer.composition.EnvironmentModule;
+import io.materializer.composition.GitHubClientsModule;
 import io.materializer.composition.StrictGuiceModule;
 import io.materializer.execution.Executor;
 import org.slf4j.Logger;
@@ -35,7 +37,9 @@ public final class Main {
         try {
             injector = Guice.createInjector(
                     com.google.inject.Stage.PRODUCTION,
-                    new StrictGuiceModule()
+                    new StrictGuiceModule(),
+                    new EnvironmentModule(),
+                    new GitHubClientsModule()
             );
             Executor executor = injector.getInstance(Executor.class);
             executor.execute(args);
