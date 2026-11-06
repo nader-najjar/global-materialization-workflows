@@ -50,6 +50,12 @@ spotbugs {
 
 repositories {
     mavenCentral()
+    maven("https://repo.jenkins-ci.org/releases/") {
+        content {
+            includeModule("com.infradna.tool", "bridge-method-annotation")
+            includeModule("org.jenkins-ci", "annotation-indexer")
+        }
+    }
 }
 
 dependencyLocking {
@@ -73,6 +79,10 @@ dependencies {
     // JSON `serde`
     implementation("com.fasterxml.jackson.core:jackson-databind:2.20.1")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.20.1")
+
+    // GitHub Interaction
+    implementation("org.kohsuke:github-api:1.330")
+    compileOnly("com.infradna.tool:bridge-method-annotation:1.30")
 
     // Validators
     implementation(platform("org.hibernate.validator:hibernate-validator-bom:9.1.0.Final"))
