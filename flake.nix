@@ -31,7 +31,7 @@
 
             IDE_PATH_VARS = "JAVA_HOME GRADLE_HOME";
 
-            RELEASE_TYPE = "container";
+            RELEASE_TYPE = "executable";
           };
         }
       );
@@ -48,8 +48,9 @@
             runtimeEnv.JAVA_HOME = "${pkgs.jdk25_headless}";
             text = ''
               idiomatic_artifacts_dir="$1"
+              input_json="$2"
               # Guice uses an unsafe JDK operation, this flag removes the warning
-              exec java -Dguice_custom_class_loading=CHILD -XX:MaxRAMPercentage=75.0 -cp "$idiomatic_artifacts_dir/*" io.materializer.Main
+              exec java -Dguice_custom_class_loading=CHILD -XX:MaxRAMPercentage=75.0 -cp "$idiomatic_artifacts_dir/*" io.materializer.Main "$input_json"
             '';
           };
         }
